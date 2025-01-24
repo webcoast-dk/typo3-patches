@@ -1,0 +1,150 @@
+diff --git a/Classes/Controller/SelectImageController.php b/Classes/Controller/SelectImageController.php
+index 96786b2..a8584d3 100644
+--- a/Classes/Controller/SelectImageController.php
++++ b/Classes/Controller/SelectImageController.php
+@@ -14,6 +14,7 @@
+ use Exception;
+ use Psr\Http\Message\ResponseInterface;
+ use Psr\Http\Message\ServerRequestInterface;
++use TYPO3\CMS\Backend\Utility\BackendUtility;
+ use TYPO3\CMS\Core\Configuration\Richtext;
+ use TYPO3\CMS\Core\Http\JsonResponse;
+ use TYPO3\CMS\Core\Resource\File;
+@@ -98,14 +99,15 @@ public function infoAction(ServerRequestInterface $request): ResponseInterface
+         }
+
+         $file          = $this->getImage((int) $id);
+-        $processedFile = $this->processImage($file, $params);
++        $maxDimensions = $this->getMaxDimensions($params);
++        $processedFile = $this->processImage($file, $params, $maxDimensions);
+
+         return new JsonResponse([
+             'uid'       => $file->getUid(),
+             'alt'       => $file->getProperty('alternative') ?? '',
+             'title'     => $file->getProperty('title') ?? '',
+-            'width'     => $file->getProperty('width'),
+-            'height'    => $file->getProperty('height'),
++            'width'     => min($file->getProperty('width'), $maxDimensions['width']),
++            'height'    => min($file->getProperty('height'), $maxDimensions['height']),
+             'url'       => $file->getPublicUrl(),
+             'processed' => [
+                 'width'  => $processedFile->getProperty('width'),
+@@ -163,21 +165,21 @@ protected function getImage(int $id): File
+     /**
+      * Get the processed image.
+      *
+-     * @param File     $file   The original image file
+-     * @param string[] $params The parameters used to process the image
++     * @param File     $file                    The original image file
++     * @param string[] $params                  The parameters used to process the image
++     * @param array<string, int> $maxDimensions The maximum width and height
+      *
+      * @return ProcessedFile
+      */
+-    protected function processImage(File $file, array $params): ProcessedFile
++    protected function processImage(File $file, array $params, array $maxDimensions): ProcessedFile
+     {
+-        // TODO: Get this from page ts config
+         $this->magicImageService->setMagicImageMaximumDimensions([
+             'buttons.' => [
+                 'image.' => [
+                     'options.' => [
+                         'magic.' => [
+-                            'maxWidth' => 1920,
+-                            'maxHeight' => 9999,
++                            'maxWidth' => $maxDimensions['width'],
++                            'maxHeight' => $maxDimensions['height'],
+                         ]
+                     ]
+                 ]
+@@ -193,4 +195,23 @@ protected function processImage(File $file, array $params): ProcessedFile
+                 ]
+             );
+     }
++
++    /**
++     * @param string[] $params
++     *
++     * @return int[]|array<string, int>
++     */
++    protected function getMaxDimensions(array $params): array
++    {
++        $tsConfig = BackendUtility::getPagesTSconfig((int) ($params['pid'] ?? 0));
++        $richtextConfigurationName = $params['richtextConfigurationName'] ?? 'default';
++        if ($richtextConfigurationName === '') {
++            $richtextConfigurationName = 'default';
++        }
++        $rteConfig = $tsConfig['RTE.'][$richtextConfigurationName . '.'];
++        $maxHeight = $rteConfig['buttons.']['image.']['options.']['magic.']['maxHeight'] ?? 9999;
++        $maxWidth = $rteConfig['buttons.']['image.']['options.']['magic.']['maxWidth'] ?? 1920;
++
++        return ['width' => $maxWidth, 'height' => $maxHeight];
++    }
+ }
+diff --git a/Classes/EventListener/RteConfigurationListener.php b/Classes/EventListener/RteConfigurationListener.php
+deleted file mode 100644
+index 50a5e53..0000000
+--- a/Classes/EventListener/RteConfigurationListener.php
++++ /dev/null
+@@ -1,21 +0,0 @@
+-<?php
+-
+-namespace Netresearch\RteCKEditorImage\EventListener;
+-
+-use TYPO3\CMS\Core\Utility\GeneralUtility;
+-use TYPO3\CMS\RteCKEditor\Form\Element\Event\AfterPrepareConfigurationForEditorEvent;
+-use TYPO3\CMS\Backend\Routing\UriBuilder;
+-
+-class RteConfigurationListener
+-{
+-    public function __invoke(AfterPrepareConfigurationForEditorEvent $event): void
+-    {
+-        $uriBuilder = GeneralUtility::makeInstance(UriBuilder::class);
+-
+-        $configuration = $event->getConfiguration();
+-        $configuration['style']['typo3image'] = [
+-            'routeUrl' => (string)$uriBuilder->buildUriFromRoute('rteckeditorimage_wizard_select_image'),
+-        ];
+-        $event->setConfiguration($configuration);
+-    }
+-}
+diff --git a/Configuration/Services.yaml b/Configuration/Services.yaml
+index 230199b..4d9b775 100644
+--- a/Configuration/Services.yaml
++++ b/Configuration/Services.yaml
+@@ -16,11 +16,5 @@ services:
+   Netresearch\RteCKEditorImage\Database\RteImagesDbHook:
+     public: true
+
+-  Netresearch\RteCKEditorImage\EventListener\RteConfigurationListener:
+-    tags:
+-      - name: event.listener
+-        identifier: 'rte_configuration_listener'
+-        event: TYPO3\CMS\RteCKEditor\Form\Element\Event\AfterPrepareConfigurationForEditorEvent
+-
+   Netresearch\RteCKEditorImage\Controller\SelectImageController:
+-    tags: ['backend.controller']
+\ No newline at end of file
++    tags: ['backend.controller']
+diff --git a/Resources/Public/JavaScript/Plugins/typo3image.js b/Resources/Public/JavaScript/Plugins/typo3image.js
+index 018d899..25a6a58 100644
+--- a/Resources/Public/JavaScript/Plugins/typo3image.js
++++ b/Resources/Public/JavaScript/Plugins/typo3image.js
+@@ -334,7 +334,7 @@ function askImageAttributes(editor, img, attributes, table) {
+  * @return {$.Deferred}
+  */
+ function getImageInfo(editor, table, uid, params) {
+-    let url = editor.config.get('style').typo3image.routeUrl + '&action=info&fileId=' + encodeURIComponent(uid) + '&table=' + encodeURIComponent(table) + '&contentsLanguage=en&editorId=123';
++    let url = editor.config.get('typo3image').routeUrl + '&action=info&fileId=' + encodeURIComponent(uid) + '&table=' + encodeURIComponent(table) + '&contentsLanguage=en&editorId=123';
+
+     if (typeof params.width !== 'undefined' && params.width.length) {
+         url += '&P[width]=' + params.width;
+@@ -357,7 +357,7 @@ function selectImage(editor) {
+     ];
+
+     // TODO: Use ajaxUrl
+-    const contentUrl = editor.config.get('style').typo3image.routeUrl + '&contentsLanguage=en&editorId=123&bparams=' + bparams.join('|');
++    const contentUrl = editor.config.get('typo3image').routeUrl + '&contentsLanguage=en&editorId=123&bparams=' + bparams.join('|');
+
+     const modal = Modal.advanced({
+         type: Modal.types.iframe,
