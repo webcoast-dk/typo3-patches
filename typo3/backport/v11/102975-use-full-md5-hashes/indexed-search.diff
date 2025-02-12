@@ -1,0 +1,758 @@
+diff --git a/Classes/Domain/Repository/AdministrationRepository.php b/Classes/Domain/Repository/AdministrationRepository.php
+index 100c75deba6..a083b677ac8 100644
+--- a/Classes/Domain/Repository/AdministrationRepository.php
++++ b/Classes/Domain/Repository/AdministrationRepository.php
+@@ -56,7 +56,7 @@ class AdministrationRepository
+     /**
+      * Get group list information
+      *
+-     * @param int $phash
++     * @param string $phash
+      * @return array
+      */
+     public function getGrlistRecord($phash)
+@@ -68,7 +68,7 @@ class AdministrationRepository
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($phash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($phash)
+                 )
+             )
+             ->executeQuery();
+@@ -87,7 +87,7 @@ class AdministrationRepository
+     /**
+      * Get number of fulltext records
+      *
+-     * @param int $phash
++     * @param string $phash
+      * @return int|bool
+      */
+     public function getNumberOfFulltextRecords($phash)
+@@ -99,7 +99,7 @@ class AdministrationRepository
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($phash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($phash)
+                 )
+             )
+             ->executeQuery()
+@@ -109,7 +109,7 @@ class AdministrationRepository
+     /**
+      * Get number of words
+      *
+-     * @param int $phash
++     * @param string $phash
+      * @return int|bool
+      */
+     public function getNumberOfWords($phash)
+@@ -121,7 +121,7 @@ class AdministrationRepository
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($phash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($phash)
+                 )
+             )
+             ->executeQuery()
+@@ -183,11 +183,11 @@ class AdministrationRepository
+                     ->where(
+                         $queryBuilder->expr()->eq(
+                             'phash_grouping',
+-                            $queryBuilder->createNamedParameter($row['phash_grouping'], Connection::PARAM_INT)
++                            $queryBuilder->createNamedParameter($row['phash_grouping'])
+                         ),
+                         $queryBuilder->expr()->neq(
+                             'phash',
+-                            $queryBuilder->createNamedParameter($row['phash'], Connection::PARAM_INT)
++                            $queryBuilder->createNamedParameter($row['phash'])
+                         )
+                     )
+                     ->executeQuery();
+@@ -306,7 +306,7 @@ class AdministrationRepository
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash)
+                 )
+             )
+             ->executeQuery()
+@@ -366,11 +366,11 @@ class AdministrationRepository
+                     ->where(
+                         $queryBuilder->expr()->eq(
+                             'phash_grouping',
+-                            $queryBuilder->createNamedParameter($row['phash_grouping'], Connection::PARAM_INT)
++                            $queryBuilder->createNamedParameter($row['phash_grouping'])
+                         ),
+                         $queryBuilder->expr()->neq(
+                             'phash',
+-                            $queryBuilder->createNamedParameter($row['phash'], Connection::PARAM_INT)
++                            $queryBuilder->createNamedParameter($row['phash'])
+                         )
+                     )
+                     ->executeQuery();
+@@ -428,10 +428,7 @@ class AdministrationRepository
+             $queryBuilder->where(
+                 $queryBuilder->expr()->in(
+                     'pageid',
+-                    $queryBuilder->createNamedParameter(
+-                        $this->extGetTreeList((int)$pageUid),
+-                        Connection::PARAM_INT_ARRAY
+-                    )
++                    $queryBuilder->quoteArrayBasedValueListToIntegerList($this->extGetTreeList($pageUid))
+                 ),
+                 QueryHelper::stripLogicalOperatorPrefix($additionalWhere)
+             );
+@@ -504,7 +501,7 @@ class AdministrationRepository
+                     ->where(
+                         $queryBuilder->expr()->eq(
+                             'index_rel.phash',
+-                            $queryBuilder->createNamedParameter($row['phash'], Connection::PARAM_INT)
++                            $queryBuilder->createNamedParameter($row['phash'])
+                         ),
+                         $queryBuilder->expr()->eq('index_words.wid', $queryBuilder->quoteIdentifier('index_rel.wid'))
+                     )
+@@ -530,7 +527,7 @@ class AdministrationRepository
+                         ->where(
+                             $queryBuilder->expr()->eq(
+                                 'phash',
+-                                $queryBuilder->createNamedParameter($row['phash'], Connection::PARAM_INT)
++                                $queryBuilder->createNamedParameter($row['phash'])
+                             )
+                         )
+                         ->setMaxResults(1)
+@@ -545,7 +542,7 @@ class AdministrationRepository
+                         ->where(
+                             $queryBuilder->expr()->eq(
+                                 'index_rel.phash',
+-                                $queryBuilder->createNamedParameter($row['phash'], Connection::PARAM_INT)
++                                $queryBuilder->createNamedParameter($row['phash'])
+                             ),
+                             $queryBuilder->expr()->eq(
+                                 'index_words.wid',
+@@ -739,8 +736,7 @@ class AdministrationRepository
+         }
+
+         foreach ($phashRows as $phash) {
+-            $phash = (int)$phash;
+-            if ($phash > 0) {
++            if ($phash !== '') {
+                 $idList = [];
+                 $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)
+                     ->getQueryBuilderForTable('index_section');
+@@ -750,7 +746,7 @@ class AdministrationRepository
+                     ->where(
+                         $queryBuilder->expr()->eq(
+                             'phash',
+-                            $queryBuilder->createNamedParameter($phash, Connection::PARAM_INT)
++                            $queryBuilder->createNamedParameter($phash)
+                         )
+                     )
+                     ->executeQuery();
+@@ -777,7 +773,7 @@ class AdministrationRepository
+                 foreach ($tableArr as $table) {
+                     GeneralUtility::makeInstance(ConnectionPool::class)
+                         ->getConnectionForTable($table)
+-                        ->delete($table, ['phash' => (int)$phash]);
++                        ->delete($table, ['phash' => $phash]);
+                 }
+             }
+         }
+@@ -798,7 +794,7 @@ class AdministrationRepository
+                 ->where(
+                     $queryBuilder->expr()->eq(
+                         'wid',
+-                        $queryBuilder->createNamedParameter($wid, Connection::PARAM_INT)
++                        $queryBuilder->createNamedParameter($wid)
+                     )
+                 )
+                 ->executeStatement();
+diff --git a/Classes/Domain/Repository/IndexSearchRepository.php b/Classes/Domain/Repository/IndexSearchRepository.php
+index 8a0268582d4..3ab5951d982 100644
+--- a/Classes/Domain/Repository/IndexSearchRepository.php
++++ b/Classes/Domain/Repository/IndexSearchRepository.php
+@@ -707,7 +707,7 @@ class IndexSearchRepository
+         $expressionBuilder = GeneralUtility::makeInstance(ConnectionPool::class)
+             ->getQueryBuilderForTable('index_words')
+             ->expr();
+-        $wSel = $expressionBuilder->eq('IW.wid', $this->md5inthash($sWord));
++        $wSel = $expressionBuilder->eq('IW.wid', $expressionBuilder->literal(md5($sWord)));
+         $this->wSelClauses[] = $wSel;
+         return $this->execPHashListQuery($wSel, $expressionBuilder->eq('is_stopword', 0));
+     }
+@@ -965,8 +965,8 @@ class IndexSearchRepository
+             ->where(
+                 $queryBuilder->expr()->in(
+                     'IP.phash',
+-                    $queryBuilder->quoteArrayBasedValueListToIntegerList(
+-                        GeneralUtility::intExplode(',', $list, true)
++                    $queryBuilder->quoteArrayBasedValueListToStringList(
++                        GeneralUtility::trimExplode(',', $list, true)
+                     )
+                 ),
+                 QueryHelper::stripLogicalOperatorPrefix($this->mediaTypeWhere()),
+@@ -1154,7 +1154,7 @@ class IndexSearchRepository
+                 'phash',
+                 'index_grlist',
+                 [
+-                    'phash' => (int)$row['phash_t3'],
++                    'phash' => $row['phash_t3'],
+                     'gr_list' => $this->frontendUserGroupList,
+                 ]
+             );
+@@ -1172,7 +1172,7 @@ class IndexSearchRepository
+                 'phash',
+                 'index_grlist',
+                 [
+-                    'phash' => (int)$row['phash'],
++                    'phash' => $row['phash'],
+                     'gr_list' => $this->frontendUserGroupList,
+                 ]
+             );
+@@ -1209,20 +1209,6 @@ class IndexSearchRepository
+         return is_object($fileContentParser) && $fileContentParser->isMultiplePageExtension($itemType);
+     }
+
+-    /**
+-     * md5 integer hash
+-     * Using 7 instead of 8 just because that makes the integers lower than
+-     * 32 bit (28 bit) and so they do not interfere with UNSIGNED integers
+-     * or PHP-versions which has varying output from the hexdec function.
+-     *
+-     * @param string $str String to hash
+-     * @return int Integer interpretation of the md5 hash of input string.
+-     */
+-    protected function md5inthash($str)
+-    {
+-        return IndexedSearchUtility::md5inthash($str);
+-    }
+-
+     /**
+      * Check if the tables provided are configured for usage.
+      * This becomes necessary for extensions that provide additional database
+diff --git a/Classes/Indexer.php b/Classes/Indexer.php
+index 22a6ab35352..5bba7d66b27 100644
+--- a/Classes/Indexer.php
++++ b/Classes/Indexer.php
+@@ -159,9 +159,9 @@ class Indexer
+     /**
+      * Content of TYPO3 page
+      *
+-     * @var int
++     * @var string
+      */
+-    public $content_md5h;
++    public $content_md5h = '';
+
+     /**
+      * @var array
+@@ -326,7 +326,7 @@ class Indexer
+             }
+             $this->log_pull();
+             // Calculating a hash over what is to be the actual page content. Maybe this hash should not include title,description and keywords? The bodytext is the primary concern. (on the other hand a changed page-title would make no difference then, so don't!)
+-            $this->content_md5h = IndexedSearchUtility::md5inthash(implode('', $this->contentParts));
++            $this->content_md5h = md5(implode(',', $this->contentParts));
+             // This function checks if there is already a page (with gr_list = 0,-1) indexed and if that page has the very same contentHash.
+             // If the contentHash is the same, then we can rest assured that this page is already indexed and regardless of mtime and origContent we don't need to do anything more.
+             // This will also prevent pages from being indexed if a fe_users has logged in and it turns out that the page content is not changed anyway. fe_users logged in should always search with hash_gr_list = "0,-1" OR "[their_group_list]". This situation will be prevented only if the page has been indexed with no user login on before hand. Else the page will be indexed by users until that event. However that does not present a serious problem.
+@@ -881,7 +881,7 @@ class Indexer
+                             $this->log_pull();
+                             if (is_array($contentParts)) {
+                                 // Calculating a hash over what is to be the actual content. (see indexTypo3PageContent())
+-                                $content_md5h = IndexedSearchUtility::md5inthash(implode('', $contentParts));
++                                $content_md5h = md5(implode('', $contentParts));
+                                 if ($this->checkExternalDocContentHash($phash_arr['phash_grouping'], $content_md5h) || $force) {
+                                     // Increment counter:
+                                     $this->externalFileCounter++;
+@@ -1083,7 +1083,7 @@ class Indexer
+             // Cut after 60 chars because the index_words.baseword varchar field has this length. This MUST be the same.
+             if (!isset($retArr[$val])) {
+                 // Word ID (wid)
+-                $retArr[$val]['hash'] = IndexedSearchUtility::md5inthash($val);
++                $retArr[$val]['hash'] = md5($val);
+                 // Metaphone value is also 60 only chars long
+                 $metaphone = $this->enableMetaphoneSearch ? substr($this->metaphone($val, $this->storeMetaphoneInfoAsWords), 0, 60) : '';
+                 $retArr[$val]['metaphone'] = $metaphone;
+@@ -1119,7 +1119,7 @@ class Indexer
+                 // First occurrence (used for ranking results)
+                 $retArr[$val]['first'] = $key;
+                 // Word ID (wid)
+-                $retArr[$val]['hash'] = IndexedSearchUtility::md5inthash($val);
++                $retArr[$val]['hash'] = md5($val);
+                 // Metaphone value is also only 60 chars long
+                 $metaphone = $this->enableMetaphoneSearch ? substr($this->metaphone($val, $this->storeMetaphoneInfoAsWords), 0, 60) : '';
+                 $retArr[$val]['metaphone'] = $metaphone;
+@@ -1157,7 +1157,7 @@ class Indexer
+             $result = $metaphoneRawValue;
+         } elseif ($metaphoneRawValue !== '') {
+             // Create hash and return integer
+-            $result = IndexedSearchUtility::md5inthash($metaphoneRawValue);
++            $result = md5($metaphoneRawValue);
+         } else {
+             $result = 0;
+         }
+@@ -1262,7 +1262,7 @@ class Indexer
+         $fields = [
+             'phash' => $hash,
+             'phash_x' => $phash_x,
+-            'hash_gr_list' => IndexedSearchUtility::md5inthash($this->conf['gr_list']),
++            'hash_gr_list' => md5($this->conf['gr_list']),
+             'gr_list' => $this->conf['gr_list'],
+         ];
+         if (IndexedSearchUtility::isTableUsed('index_grlist')) {
+@@ -1276,8 +1276,8 @@ class Indexer
+      * Stores section
+      * $hash and $hash_t3 are the same for TYPO3 pages, but different when it is external files.
+      *
+-     * @param int $hash phash of TYPO3 parent search result record
+-     * @param int $hash_t3 phash of the file indexation search record
++     * @param string $hash phash of TYPO3 parent search result record
++     * @param string $hash_t3 phash of the file indexation search record
+      */
+     public function submit_section($hash, $hash_t3)
+     {
+@@ -1297,7 +1297,7 @@ class Indexer
+     /**
+      * Removes records for the indexed page, $phash
+      *
+-     * @param int $phash phash value to flush
++     * @param string $phash phash value to flush
+      */
+     public function removeOldIndexedPages($phash)
+     {
+@@ -1307,7 +1307,7 @@ class Indexer
+         $tableArray = ['index_phash', 'index_section', 'index_grlist', 'index_fulltext', 'index_debug'];
+         foreach ($tableArray as $table) {
+             if (IndexedSearchUtility::isTableUsed($table)) {
+-                $connectionPool->getConnectionForTable($table)->delete($table, ['phash' => (int)$phash]);
++                $connectionPool->getConnectionForTable($table)->delete($table, ['phash' => $phash]);
+             }
+         }
+
+@@ -1316,7 +1316,7 @@ class Indexer
+         // are done in indexRegularDocument($file).
+         if (IndexedSearchUtility::isTableUsed('index_section')) {
+             $connectionPool->getConnectionForTable('index_section')
+-                ->delete('index_section', ['phash_t3' => (int)$phash]);
++                ->delete('index_section', ['phash_t3' => $phash]);
+         }
+     }
+
+@@ -1335,7 +1335,7 @@ class Indexer
+      * @param int $mtime Modification time of file.
+      * @param int $ctime Creation time of file.
+      * @param int $size Size of file in bytes
+-     * @param int $content_md5h Content HASH value.
++     * @param string $content_md5h Content HASH value.
+      * @param array $contentParts Standard content array (using only title and body for a file)
+      */
+     public function submitFilePage($hash, $file, $subinfo, $ext, $mtime, $ctime, $size, $content_md5h, $contentParts)
+@@ -1413,7 +1413,7 @@ class Indexer
+     /**
+      * Stores file gr_list for a file IF it does not exist already
+      *
+-     * @param int $hash phash value of file
++     * @param string $hash phash value of file
+      */
+     public function submitFile_grlist($hash)
+     {
+@@ -1429,22 +1429,16 @@ class Indexer
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($hash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($hash)
+                 ),
+                 $queryBuilder->expr()->orX(
+                     $queryBuilder->expr()->eq(
+                         'hash_gr_list',
+-                        $queryBuilder->createNamedParameter(
+-                            IndexedSearchUtility::md5inthash($this->defaultGrList),
+-                            Connection::PARAM_INT
+-                        )
++                        $queryBuilder->createNamedParameter(md5($this->defaultGrList))
+                     ),
+                     $queryBuilder->expr()->eq(
+                         'hash_gr_list',
+-                        $queryBuilder->createNamedParameter(
+-                            IndexedSearchUtility::md5inthash($this->conf['gr_list']),
+-                            Connection::PARAM_INT
+-                        )
++                        $queryBuilder->createNamedParameter(md5($this->conf['gr_list']))
+                     )
+                 )
+             )
+@@ -1459,7 +1453,7 @@ class Indexer
+     /**
+      * Stores file section for a file IF it does not exist
+      *
+-     * @param int $hash phash value of file
++     * @param string $hash phash value of file
+      */
+     public function submitFile_section($hash)
+     {
+@@ -1475,7 +1469,7 @@ class Indexer
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($hash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($hash)
+                 ),
+                 $queryBuilder->expr()->eq(
+                     'page_id',
+@@ -1493,7 +1487,7 @@ class Indexer
+     /**
+      * Removes records for the indexed page, $phash
+      *
+-     * @param int $phash phash value to flush
++     * @param string $phash phash value to flush
+      */
+     public function removeOldIndexedFiles($phash)
+     {
+@@ -1504,7 +1498,7 @@ class Indexer
+             if (!IndexedSearchUtility::isTableUsed($table)) {
+                 continue;
+             }
+-            $connectionPool->getConnectionForTable($table)->delete($table, ['phash' => (int)$phash]);
++            $connectionPool->getConnectionForTable($table)->delete($table, ['phash' => $phash]);
+         }
+     }
+
+@@ -1518,7 +1512,7 @@ class Indexer
+      * Return positive integer if the page needs to be indexed
+      *
+      * @param int $mtime mtime value to test against limits and indexed page (usually this is the mtime of the cached document)
+-     * @param int $phash "phash" used to select any already indexed page to see what its mtime is.
++     * @param string $phash "phash" used to select any already indexed page to see what its mtime is.
+      * @return int Result integer: Generally: <0 = No indexing, >0 = Do indexing (see $this->reasons): -2) Min age was NOT exceeded and so indexing cannot occur.  -1) mtime matched so no need to reindex page. 0) N/A   1) Max age exceeded, page must be indexed again.   2) mtime of indexed page doesn't match mtime given for current content and we must index page.  3) No mtime was set, so we will index...  4) No indexed page found, so of course we will index.
+      */
+     public function checkMtimeTstamp($mtime, $phash)
+@@ -1531,7 +1525,7 @@ class Indexer
+                 ->select(
+                     ['item_mtime', 'tstamp'],
+                     'index_phash',
+-                    ['phash' => (int)$phash],
++                    ['phash' => $phash],
+                     [],
+                     [],
+                     1
+@@ -1594,8 +1588,8 @@ class Indexer
+                     ['phash'],
+                     'index_phash',
+                     [
+-                        'phash_grouping' => (int)$this->hash['phash_grouping'],
+-                        'contentHash' => (int)$this->content_md5h,
++                        'phash_grouping' => $this->hash['phash_grouping'],
++                        'contentHash' => $this->content_md5h,
+                     ],
+                     [],
+                     [],
+@@ -1614,8 +1608,8 @@ class Indexer
+      * Check content hash for external documents
+      * Returns TRUE if the document needs to be indexed (that is, there was no result)
+      *
+-     * @param int $hashGr phash value to check (phash_grouping)
+-     * @param int $content_md5h Content hash to check
++     * @param string $hashGr phash value to check (phash_grouping)
++     * @param string $content_md5h Content hash to check
+      * @return bool Returns TRUE if the document needs to be indexed (that is, there was no result)
+      */
+     public function checkExternalDocContentHash($hashGr, $content_md5h)
+@@ -1628,8 +1622,8 @@ class Indexer
+                     '*',
+                     'index_phash',
+                     [
+-                        'phash_grouping' => (int)$hashGr,
+-                        'contentHash' => (int)$content_md5h,
++                        'phash_grouping' => $hashGr,
++                        'contentHash' => $content_md5h,
+                     ]
+                 );
+
+@@ -1641,7 +1635,7 @@ class Indexer
+     /**
+      * Checks if a grlist record has been set for the phash value input (looking at the "real" phash of the current content, not the linked-to phash of the common search result page)
+      *
+-     * @param int $phash_x Phash integer to test.
++     * @param string $phash_x Phash string to test.
+      * @return bool
+      */
+     public function is_grlist_set($phash_x)
+@@ -1653,7 +1647,7 @@ class Indexer
+                 ->count(
+                     'phash_x',
+                     'index_grlist',
+-                    ['phash_x' => (int)$phash_x]
++                    ['phash_x' => $phash_x]
+                 );
+
+             $result = $count > 0;
+@@ -1664,8 +1658,8 @@ class Indexer
+     /**
+      * Check if a grlist-entry for this hash exists and if not so, write one.
+      *
+-     * @param int $phash phash of the search result that should be found
+-     * @param int $phash_x The real phash of the current content. The two values are different when a page with userlogin turns out to contain the exact same content as another already indexed version of the page; This is the whole reason for the grlist table in fact...
++     * @param string $phash phash of the search result that should be found
++     * @param string $phash_x The real phash of the current content. The two values are different when a page with userlogin turns out to contain the exact same content as another already indexed version of the page; This is the whole reason for the grlist table in fact...
+      * @see submit_grlist()
+      */
+     public function update_grlist($phash, $phash_x)
+@@ -1677,8 +1671,8 @@ class Indexer
+                     'phash',
+                     'index_grlist',
+                     [
+-                        'phash' => (int)$phash,
+-                        'hash_gr_list' => IndexedSearchUtility::md5inthash($this->conf['gr_list']),
++                        'phash' => $phash,
++                        'hash_gr_list' => md5($this->conf['gr_list']),
+                     ]
+                 );
+
+@@ -1692,7 +1686,7 @@ class Indexer
+     /**
+      * Update tstamp for a phash row.
+      *
+-     * @param int $phash phash value
++     * @param string $phash phash value
+      * @param int $mtime If set, update the mtime field to this value.
+      */
+     public function updateTstamp($phash, $mtime = 0)
+@@ -1715,7 +1709,7 @@ class Indexer
+                 'index_phash',
+                 $updateFields,
+                 [
+-                    'phash' => (int)$phash,
++                    'phash' => $phash,
+                 ]
+             );
+     }
+@@ -1723,7 +1717,7 @@ class Indexer
+     /**
+      * Update SetID of the index_phash record.
+      *
+-     * @param int $phash phash value
++     * @param string $phash phash value
+      */
+     public function updateSetId($phash)
+     {
+@@ -1739,7 +1733,7 @@ class Indexer
+                     'freeIndexSetId' => (int)$this->conf['freeIndexSetId'],
+                 ],
+                 [
+-                    'phash' => (int)$phash,
++                    'phash' => $phash,
+                 ]
+             );
+     }
+@@ -1747,7 +1741,7 @@ class Indexer
+     /**
+      * Update parsetime for phash row.
+      *
+-     * @param int $phash phash value.
++     * @param string $phash phash value.
+      * @param int $parsetime Parsetime value to set.
+      */
+     public function updateParsetime($phash, $parsetime)
+@@ -1764,7 +1758,7 @@ class Indexer
+                     'parsetime' => (int)$parsetime,
+                 ],
+                 [
+-                    'phash' => (int)$phash,
++                    'phash' => $phash,
+                 ]
+             );
+     }
+@@ -1825,7 +1819,7 @@ class Indexer
+         }
+
+         $wordListArrayCount = count($wordListArray);
+-        $phashArray = array_map('intval', array_column($wordListArray, 'hash'));
++        $phashArray = array_column($wordListArray, 'hash');
+
+         $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('index_words');
+         $count = (int)$queryBuilder->count('baseword')
+@@ -1833,7 +1827,7 @@ class Indexer
+             ->where(
+                 $queryBuilder->expr()->in(
+                     'wid',
+-                    $queryBuilder->createNamedParameter($phashArray, Connection::PARAM_INT_ARRAY)
++                    $queryBuilder->quoteArrayBasedValueListToStringList($phashArray)
+                 )
+             )
+             ->executeQuery()
+@@ -1848,7 +1842,7 @@ class Indexer
+                 ->where(
+                     $queryBuilder->expr()->in(
+                         'wid',
+-                        $queryBuilder->createNamedParameter($phashArray, Connection::PARAM_INT_ARRAY)
++                        $queryBuilder->quoteArrayBasedValueListToStringList($phashArray)
+                     )
+                 )
+                 ->executeQuery();
+@@ -1882,7 +1876,7 @@ class Indexer
+      * Submits RELATIONS between words and phash
+      *
+      * @param array $wordList Word list array
+-     * @param int $phash phash value
++     * @param string $phash phash value
+      */
+     public function submitWords($wordList, $phash)
+     {
+@@ -1904,7 +1898,7 @@ class Indexer
+             $stopWords[$row['wid']] = $row;
+         }
+
+-        $connectionPool->getConnectionForTable('index_rel')->delete('index_rel', ['phash' => (int)$phash]);
++        $connectionPool->getConnectionForTable('index_rel')->delete('index_rel', ['phash' => $phash]);
+
+         $fields = ['phash', 'wid', 'count', 'first', 'freq', 'flags'];
+         $rows = [];
+@@ -1913,8 +1907,8 @@ class Indexer
+                 continue;
+             }
+             $rows[] = [
+-                (int)$phash,
+-                (int)$val['hash'],
++                $phash,
++                $val['hash'],
+                 (int)$val['count'],
+                 (int)($val['first'] ?? 0),
+                 $this->freqMap($val['count'] / $this->wordcount),
+@@ -1965,10 +1959,10 @@ class Indexer
+             'staticPageArguments' => is_array($this->conf['staticPageArguments']) ? json_encode($this->conf['staticPageArguments']) : null,
+         ];
+         // Set grouping hash (Identifies a "page" combined of id, type, language, mountpoint and cHash parameters):
+-        $this->hash['phash_grouping'] = IndexedSearchUtility::md5inthash(serialize($hArray));
++        $this->hash['phash_grouping'] = md5(serialize($hArray));
+         // Add gr_list and set plain phash (Subdivision where special page composition based on login is taken into account as well. It is expected that such pages are normally similar regardless of the login.)
+         $hArray['gr_list'] = (string)$this->conf['gr_list'];
+-        $this->hash['phash'] = IndexedSearchUtility::md5inthash(serialize($hArray));
++        $this->hash['phash'] = md5(serialize($hArray));
+     }
+
+     /**
+@@ -1986,10 +1980,10 @@ class Indexer
+             'file' => $file,
+         ];
+         // Set grouping hash:
+-        $hash['phash_grouping'] = IndexedSearchUtility::md5inthash(serialize($hArray));
++        $hash['phash_grouping'] = md5(serialize($hArray));
+         // Add subinfo
+         $hArray['subinfo'] = $subinfo;
+-        $hash['phash'] = IndexedSearchUtility::md5inthash(serialize($hArray));
++        $hash['phash'] = md5(serialize($hArray));
+         return $hash;
+     }
+
+diff --git a/Classes/Utility/IndexedSearchUtility.php b/Classes/Utility/IndexedSearchUtility.php
+index 7c50335f183..335931496a2 100644
+--- a/Classes/Utility/IndexedSearchUtility.php
++++ b/Classes/Utility/IndexedSearchUtility.php
+@@ -38,18 +38,6 @@ class IndexedSearchUtility
+         return GeneralUtility::inList($tableList, $tableName);
+     }
+
+-    /**
+-     * md5 integer hash
+-     * Using 7 instead of 8 just because that makes the integers lower than 32 bit (28 bit) and so they do not interfere with UNSIGNED integers or PHP-versions which has varying output from the hexdec function.
+-     *
+-     * @param string $stringToHash String to hash
+-     * @return int Integer interpretation of the md5 hash of input string.
+-     */
+-    public static function md5inthash($stringToHash)
+-    {
+-        return (int)hexdec(substr(md5($stringToHash), 0, 7));
+-    }
+-
+     /**
+      * Takes a search-string (WITHOUT SLASHES or else it'll be a little spooky , NOW REMEMBER to unslash!!)
+      * Sets up search words with operators.
+diff --git a/ext_tables.sql b/ext_tables.sql
+index 5e84b49cbe0..a78272c2453 100644
+--- a/ext_tables.sql
++++ b/ext_tables.sql
+@@ -3,8 +3,8 @@
+ # Table structure for table 'index_phash'
+ #
+ CREATE TABLE index_phash (
+-  phash int(11) DEFAULT '0' NOT NULL,
+-  phash_grouping int(11) DEFAULT '0' NOT NULL,
++  phash varchar(32) NOT NULL,
++  phash_grouping varchar(32) NOT NULL,
+   static_page_arguments blob,
+   data_filename varchar(1024) DEFAULT '' NOT NULL,
+   data_page_id int(11) unsigned DEFAULT '0' NOT NULL,
+@@ -17,7 +17,7 @@ CREATE TABLE index_phash (
+   item_mtime int(11) DEFAULT '0' NOT NULL,
+   tstamp int(11) unsigned DEFAULT '0' NOT NULL,
+   item_size int(11) DEFAULT '0' NOT NULL,
+-  contentHash int(11) DEFAULT '0' NOT NULL,
++  contentHash varchar(32) NOT NULL,
+   crdate int(11) DEFAULT '0' NOT NULL,
+   parsetime int(11) DEFAULT '0' NOT NULL,
+   sys_language_uid int(11) DEFAULT '0' NOT NULL,
+@@ -35,7 +35,7 @@ CREATE TABLE index_phash (
+ # Table structure for table 'index_fulltext'
+ #
+ CREATE TABLE index_fulltext (
+-  phash int(11) DEFAULT '0' NOT NULL,
++  phash varchar(32) NOT NULL,
+   fulltextdata mediumtext,
+   metaphonedata mediumtext NOT NULL,
+   PRIMARY KEY (phash)
+@@ -45,8 +45,8 @@ CREATE TABLE index_fulltext (
+ # Table structure for table 'index_rel'
+ #
+ CREATE TABLE index_rel (
+-  phash int(11) DEFAULT '0' NOT NULL,
+-  wid int(11) DEFAULT '0' NOT NULL,
++  phash varchar(32) NOT NULL,
++  wid varchar(32) NOT NULL,
+   count tinyint(3) unsigned DEFAULT '0' NOT NULL,
+   first int(11) unsigned DEFAULT '0' NOT NULL,
+   freq smallint(5) unsigned DEFAULT '0' NOT NULL,
+@@ -59,7 +59,7 @@ CREATE TABLE index_rel (
+ # Table structure for table 'index_words'
+ #
+ CREATE TABLE index_words (
+-  wid int(11) DEFAULT '0' NOT NULL,
++  wid varchar(32) NOT NULL,
+   baseword varchar(60) DEFAULT '' NOT NULL,
+   metaphone varchar(60) DEFAULT '' NOT NULL,
+   is_stopword tinyint(3) DEFAULT '0' NOT NULL,
+@@ -72,8 +72,8 @@ CREATE TABLE index_words (
+ # Table structure for table 'index_section'
+ #
+ CREATE TABLE index_section (
+-  phash int(11) DEFAULT '0' NOT NULL,
+-  phash_t3 int(11) DEFAULT '0' NOT NULL,
++  phash varchar(32) NOT NULL,
++  phash_t3 varchar(32) NOT NULL,
+   rl0 int(11) unsigned DEFAULT '0' NOT NULL,
+   rl1 int(11) unsigned DEFAULT '0' NOT NULL,
+   rl2 int(11) unsigned DEFAULT '0' NOT NULL,
+@@ -90,9 +90,9 @@ CREATE TABLE index_section (
+ # Table structure for table 'index_grlist'
+ #
+ CREATE TABLE index_grlist (
+-  phash int(11) DEFAULT '0' NOT NULL,
+-  phash_x int(11) DEFAULT '0' NOT NULL,
+-  hash_gr_list int(11) DEFAULT '0' NOT NULL,
++  phash varchar(32) NOT NULL,
++  phash_x varchar(32) NOT NULL,
++  hash_gr_list varchar(32) NOT NULL,
+   gr_list varchar(255) DEFAULT '' NOT NULL,
+   uniqid int(11) NOT NULL auto_increment,
+   PRIMARY KEY (uniqid),
+@@ -104,7 +104,7 @@ CREATE TABLE index_grlist (
+ # Table structure for table 'index_debug'
+ #
+ CREATE TABLE index_debug (
+-  phash int(11) DEFAULT '0' NOT NULL,
++  phash varchar(32) NOT NULL,
+   debuginfo mediumtext,
+   PRIMARY KEY (phash)
+ );
