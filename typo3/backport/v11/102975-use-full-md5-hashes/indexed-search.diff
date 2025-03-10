@@ -1,3 +1,86 @@
+diff --git a/Classes/Controller/AdministrationController.php b/Classes/Controller/AdministrationController.php
+index 1066ec722aa..f1e18f5ed19 100644
+--- a/Classes/Controller/AdministrationController.php
++++ b/Classes/Controller/AdministrationController.php
+@@ -254,13 +254,12 @@ class AdministrationController extends ActionController
+     /**
+      * Statistics for a given page hash
+      *
+-     * @param int $pageHash
++     * @param string $pageHash
+      */
+-    public function statisticDetailsAction($pageHash = 0): ResponseInterface
++    public function statisticDetailsAction($pageHash = ''): ResponseInterface
+     {
+         $moduleTemplate = $this->initializeModuleTemplate($this->request);
+         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
+-        $pageHash = (int)$pageHash;
+ 
+         // Set back button
+         $backButton = $buttonBar
+@@ -277,7 +276,7 @@ class AdministrationController extends ActionController
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_STR)
+                 )
+             )
+             ->executeQuery()
+@@ -294,7 +293,7 @@ class AdministrationController extends ActionController
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_STR)
+                 )
+             )
+             ->executeQuery()
+@@ -317,7 +316,7 @@ class AdministrationController extends ActionController
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'index_rel.phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_STR)
+                 ),
+                 $queryBuilder->expr()->eq(
+                     'index_words.wid',
+@@ -358,7 +357,7 @@ class AdministrationController extends ActionController
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_STR)
+                 )
+             )
+             ->executeQuery()
+@@ -374,7 +373,7 @@ class AdministrationController extends ActionController
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'index_rel.phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_STR)
+                 ),
+                 $queryBuilder->expr()->eq(
+                     'index_words.is_stopword',
+@@ -399,7 +398,7 @@ class AdministrationController extends ActionController
+             ->where(
+                 $queryBuilder->expr()->eq(
+                     'index_rel.phash',
+-                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_INT)
++                    $queryBuilder->createNamedParameter($pageHash, Connection::PARAM_STR)
+                 ),
+                 $queryBuilder->expr()->eq(
+                     'index_words.is_stopword',
+@@ -416,7 +415,7 @@ class AdministrationController extends ActionController
+ 
+         $this->view->assignMultiple([
+             'extensionConfiguration' => $this->indexerConfig,
+-            'phash' => (int)$pageHash,
++            'phash' => $pageHash,
+             'phashRow' => $pageHashRow,
+             'words' => $wordRecords,
+             'sections' => $sections,
 diff --git a/Classes/Domain/Repository/AdministrationRepository.php b/Classes/Domain/Repository/AdministrationRepository.php
 index 100c75deba6..a083b677ac8 100644
 --- a/Classes/Domain/Repository/AdministrationRepository.php
@@ -134,7 +217,7 @@ index 100c75deba6..a083b677ac8 100644
                                  'index_words.wid',
 @@ -739,8 +736,7 @@ class AdministrationRepository
          }
-
+ 
          foreach ($phashRows as $phash) {
 -            $phash = (int)$phash;
 -            if ($phash > 0) {
@@ -214,7 +297,7 @@ index 8a0268582d4..3ab5951d982 100644
 @@ -1209,20 +1209,6 @@ class IndexSearchRepository
          return is_object($fileContentParser) && $fileContentParser->isMultiplePageExtension($itemType);
      }
-
+ 
 -    /**
 -     * md5 integer hash
 -     * Using 7 instead of 8 just because that makes the integers lower than
@@ -245,7 +328,7 @@ index 22a6ab35352..5bba7d66b27 100644
       */
 -    public $content_md5h;
 +    public $content_md5h = '';
-
+ 
      /**
       * @var array
 @@ -326,7 +326,7 @@ class Indexer
@@ -330,7 +413,7 @@ index 22a6ab35352..5bba7d66b27 100644
 +                $connectionPool->getConnectionForTable($table)->delete($table, ['phash' => $phash]);
              }
          }
-
+ 
 @@ -1316,7 +1316,7 @@ class Indexer
          // are done in indexRegularDocument($file).
          if (IndexedSearchUtility::isTableUsed('index_section')) {
@@ -339,7 +422,7 @@ index 22a6ab35352..5bba7d66b27 100644
 +                ->delete('index_section', ['phash_t3' => $phash]);
          }
      }
-
+ 
 @@ -1335,7 +1335,7 @@ class Indexer
       * @param int $mtime Modification time of file.
       * @param int $ctime Creation time of file.
@@ -419,7 +502,7 @@ index 22a6ab35352..5bba7d66b27 100644
 +            $connectionPool->getConnectionForTable($table)->delete($table, ['phash' => $phash]);
          }
      }
-
+ 
 @@ -1518,7 +1512,7 @@ class Indexer
       * Return positive integer if the page needs to be indexed
       *
@@ -470,7 +553,7 @@ index 22a6ab35352..5bba7d66b27 100644
 +                        'contentHash' => $content_md5h,
                      ]
                  );
-
+ 
 @@ -1641,7 +1635,7 @@ class Indexer
      /**
       * Checks if a grlist record has been set for the phash value input (looking at the "real" phash of the current content, not the linked-to phash of the common search result page)
@@ -487,7 +570,7 @@ index 22a6ab35352..5bba7d66b27 100644
 -                    ['phash_x' => (int)$phash_x]
 +                    ['phash_x' => $phash_x]
                  );
-
+ 
              $result = $count > 0;
 @@ -1664,8 +1658,8 @@ class Indexer
      /**
@@ -510,7 +593,7 @@ index 22a6ab35352..5bba7d66b27 100644
 +                        'hash_gr_list' => md5($this->conf['gr_list']),
                      ]
                  );
-
+ 
 @@ -1692,7 +1686,7 @@ class Indexer
      /**
       * Update tstamp for a phash row.
@@ -567,11 +650,11 @@ index 22a6ab35352..5bba7d66b27 100644
      }
 @@ -1825,7 +1819,7 @@ class Indexer
          }
-
+ 
          $wordListArrayCount = count($wordListArray);
 -        $phashArray = array_map('intval', array_column($wordListArray, 'hash'));
 +        $phashArray = array_column($wordListArray, 'hash');
-
+ 
          $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable('index_words');
          $count = (int)$queryBuilder->count('baseword')
 @@ -1833,7 +1827,7 @@ class Indexer
@@ -604,10 +687,10 @@ index 22a6ab35352..5bba7d66b27 100644
 @@ -1904,7 +1898,7 @@ class Indexer
              $stopWords[$row['wid']] = $row;
          }
-
+ 
 -        $connectionPool->getConnectionForTable('index_rel')->delete('index_rel', ['phash' => (int)$phash]);
 +        $connectionPool->getConnectionForTable('index_rel')->delete('index_rel', ['phash' => $phash]);
-
+ 
          $fields = ['phash', 'wid', 'count', 'first', 'freq', 'flags'];
          $rows = [];
 @@ -1913,8 +1907,8 @@ class Indexer
@@ -632,7 +715,7 @@ index 22a6ab35352..5bba7d66b27 100644
 -        $this->hash['phash'] = IndexedSearchUtility::md5inthash(serialize($hArray));
 +        $this->hash['phash'] = md5(serialize($hArray));
      }
-
+ 
      /**
 @@ -1986,10 +1980,10 @@ class Indexer
              'file' => $file,
@@ -646,7 +729,7 @@ index 22a6ab35352..5bba7d66b27 100644
 +        $hash['phash'] = md5(serialize($hArray));
          return $hash;
      }
-
+ 
 diff --git a/Classes/Utility/IndexedSearchUtility.php b/Classes/Utility/IndexedSearchUtility.php
 index 7c50335f183..335931496a2 100644
 --- a/Classes/Utility/IndexedSearchUtility.php
@@ -654,7 +737,7 @@ index 7c50335f183..335931496a2 100644
 @@ -38,18 +38,6 @@ class IndexedSearchUtility
          return GeneralUtility::inList($tableList, $tableName);
      }
-
+ 
 -    /**
 -     * md5 integer hash
 -     * Using 7 instead of 8 just because that makes the integers lower than 32 bit (28 bit) and so they do not interfere with UNSIGNED integers or PHP-versions which has varying output from the hexdec function.
